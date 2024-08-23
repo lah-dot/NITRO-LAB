@@ -5,10 +5,10 @@ from pages import distance_speed_plotter
 
 # Dictionary mapping page names to functions
 pages = {
-    "Home": home.app,  # Assume you have a home page
+    #"Home": home.app,  # Assume you have a home page
     "Shoe Spider Plot": shoe_spider_plot.app,  # Add the new page
     "Shoe Comparison" : shoe_comparison.app,
-    "Distance Speed Comparison" : distance_speed_plotted.app
+    "Distance Speed Comparison" : distance_speed_plotter.app
 }
 
 # Sidebar for navigation

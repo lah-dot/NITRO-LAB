@@ -145,7 +145,22 @@ def app():
         else:
             most_similar_pair, distance_df = compare_shoes(z_scores, selected_shoes, variables)
                 
-            st.write(f"Most similar pair of shoes: {most_similar_pair} with a distance of {distance_df[distance_df > 0.001].min().min():.2f}")
+            flat_distances = (
+                distance_df.where(np.triu(np.ones(distance_df.shape), k=1).astype(bool))  # Only upper triangle (excluding diagonal)
+                .stack()
+            )
+
+            # Sort the flattened distances and select the top 3
+            top3_similar_pairs = flat_distances.nsmallest(3)
+
+            # Display the top 3 most similar pairs of shoes
+            st.write("Top 3 most similar pairs of shoes:")
+            for idx, (shoes, distance) in enumerate(top3_similar_pairs.items(), 1):
+                st.write(f"#{idx} Most similar pair: {shoes} with a distance of {distance:.2f}")
+                        
+            
+            
+            #st.write(f"Most similar pair of shoes: {most_similar_pair} with a distance of {distance_df[distance_df > 0.001].min().min():.2f}")
 
             # Plotting the pairwise distance matrix as a heatmap
             plt.figure(figsize=(8, 6))

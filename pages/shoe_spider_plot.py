@@ -38,8 +38,12 @@ def get_z_scores(data):
     # Stability calculation
     stability_vars = ['gague midfoot', 'gague forefoot', 'gague rearfoot', 
                       'Rear_Max Deformation %', 'Stability features']
-    stability_weights = [0.35, 0.05, 0.05, 0.15, 0.4]
+    stability_weights = [0.35, 0.05, 0.05, 0.15, 0.3]
     z_scores['Stability'] = z_scores[stability_vars].dot(stability_weights)
+
+    #add cushioning and stability to data columns
+    data['Cushioning'] = z_scores['Cushioning']
+    data['Stability'] = z_scores['Stability']
     
     return z_scores
 
@@ -64,10 +68,10 @@ def spiderplot_streamlit(z_scores, variables, shoe_names, labels, new_shoe_score
 
     # Plot the ideal shoe (user makes it up)
     if plot_new_shoe and new_shoe_scores is not None:
-        values = np.array(new_shoe_scores)
-        values = np.append(values, values[0])
-        ax.plot(angles, values, linewidth=2, linestyle='dashed', color='red', label='New Shoe')
-        ax.fill(angles, values, alpha=0.3, color='red')
+        new_shoe_values = np.append(new_shoe_scores, new_shoe_scores[0])
+        ax.plot(angles, new_shoe_values, linewidth=2, linestyle='dotted', label='New Shoe', color='red')
+        ax.fill(angles, new_shoe_values, alpha=0.2, color='red')
+
     
     ax.set_ylim(-2.5, 2)
     ax.set_yticklabels([])
@@ -98,7 +102,7 @@ def app():
     st.title("Shoe Spider Plot Generator")
     st.write("Select shoes to plot:")
 
-    file_path = 'C:/Users/laura.healey/OneDrive - PUMA/Shared Inno Research/1. Running/2024June_SiloTestStrategy/Silo_testing.xlsx'
+    file_path = 'C:/Users/laura.healey/OneDrive - PUMA/Shared Inno Research/1. Running/2024June_SiloTestStrategy/Silo_testing_allshoes.xlsx'
     data = read_files(file_path)
     z_scores = get_z_scores(data)
 
@@ -106,16 +110,69 @@ def app():
     labels = ['Cushioning', 'Lightweight', 'Energy Return', 'Bending Stiffness', 'Stability']
   
     # Checkbox to determine if new shoe should be plotted
-    plot_new_shoe = st.sidebar.checkbox("Include New Shoe in Plot", value=False)
+    plot_new_shoe = st.sidebar.checkbox("Include New Shoe in Plot", value=True)
+    
+    # Define custom slider ranges for each variable
+    slider_ranges = {
+        'Cushioning': {'min': 0.5, 'max': 2.0, 'step': 0.05},
+        'Weight (g)': {'min': 50.0, 'max': 350.0, 'step': 5.0},
+        'Rear_Energy Returned %': {'min': 60.0, 'max': 100.0, 'step': 0.5},
+        'Stiffness (N.m/deg)': {'min': 0.1, 'max': 0.6, 'step': 0.1},
+        'Stability': {'min': -0.5, 'max': 2.0, 'step': 0.01}
+    }
+    
+    #plot a new shoe
+    means = data[variables].mean()
+    std_devs = data[variables].std()
+
+    # Initialize new_shoe_scores
+    new_shoe_scores = None  # Default to None
     
     if plot_new_shoe:
         st.sidebar.header("New Shoe Characteristics")
-        new_shoe_scores = []
+
+        new_shoe_scores_raw = []  # Store raw scores
+        new_shoe_scores = []    # Store z-scores
         for var in variables:
-            score = st.sidebar.slider(f"{var} for New Shoe", min_value=-3.0, max_value=3.0, value=0.0, step=0.1)
+            # Get custom range values for this variable
+            min_val = slider_ranges[var]['min']
+            max_val = slider_ranges[var]['max']
+            step_val = slider_ranges[var]['step']
+           
+            # Slider for raw number input
+            raw_score = st.sidebar.slider(
+                f"{var} for New Shoe",
+                min_value=min_val,
+                max_value=max_val,
+                value=means[var],  # Default to the mean of the variable
+                step=step_val
+            )
+            new_shoe_scores_raw.append(raw_score)
+            # Calculate z-score
+            score = (raw_score - means[var]) / std_devs[var]
+
+            # Calculate z-score and invert weight
+            if var == 'Weight (g)':
+                score = -(raw_score - means[var]) / std_devs[var]  # Invert weight
+            else:
+                score = (raw_score - means[var]) / std_devs[var]
+
             new_shoe_scores.append(score)
+
     else:
+        new_shoe_scores_raw = None
         new_shoe_scores = None
+
+
+    
+    # if plot_new_shoe:
+    #     st.sidebar.header("New Shoe Characteristics")
+    #     new_shoe_scores = []
+    #     for var in variables:
+    #         score = st.sidebar.slider(f"{var} for New Shoe", min_value=-3.0, max_value=3.0, value=0.0, step=0.1)
+    #         new_shoe_scores.append(score)
+    # else:
+    #     new_shoe_scores = None
 
     # Multi-select for existing shoes in three columns with checkboxes
     shoe_names = z_scores['Shoe Name'].tolist()
@@ -158,9 +215,6 @@ def app():
             for idx, (shoes, distance) in enumerate(top3_similar_pairs.items(), 1):
                 st.write(f"#{idx} Most similar pair: {shoes} with a distance of {distance:.2f}")
                         
-            
-            
-            #st.write(f"Most similar pair of shoes: {most_similar_pair} with a distance of {distance_df[distance_df > 0.001].min().min():.2f}")
 
             # Plotting the pairwise distance matrix as a heatmap
             plt.figure(figsize=(8, 6))
